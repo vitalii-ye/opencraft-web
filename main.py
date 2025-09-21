@@ -180,8 +180,6 @@ async def google_auth(callback: str = None):
         pending_auth_sessions[state] = {'launcher_callback': callback}
     
     return RedirectResponse(url=authorization_url)
-    
-    return RedirectResponse(url=authorization_url)
 
 @app.get("/auth/google/callback")
 async def google_callback(request: Request):
@@ -232,7 +230,17 @@ async def google_callback(request: Request):
         
         # If launcher callback, redirect back to launcher
         if launcher_callback:
+            # Get user's character name from database
+            user_doc = users_collection.find_one({"email": user_email})
+            character_name = None
+            if user_doc:
+                character_name = user_doc.get("character_name")
+            
+            # Build callback URL with both username and character name
             callback_url = f"{launcher_callback}?success=true&username={user_email}"
+            if character_name:
+                callback_url += f"&character_name={character_name}"
+            
             return RedirectResponse(url=callback_url, status_code=302)
         
         # Otherwise, normal web flow
