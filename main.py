@@ -6,7 +6,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from google_auth_oauthlib.flow import Flow
 import os
-from urllib.parse import urlencode
+from urllib.parse import urlencode, parse_qs
 import secrets
 from dotenv import load_dotenv
 from itsdangerous import URLSafeTimedSerializer
@@ -46,6 +46,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Session helpers
+pending_auth_sessions = {}  # Store pending authentication sessions
+
 def get_session_data(request: Request):
     """Extract session data from cookies"""
     session_cookie = request.cookies.get("session")
@@ -90,7 +92,7 @@ async def signin_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request, "user": user_data})
 
 @app.get("/auth/google")
-async def google_auth():
+async def google_auth(callback: str = None):
     """Redirect to Google OAuth"""
     flow = Flow.from_client_config(client_config, scopes=[
         'openid',
@@ -104,6 +106,12 @@ async def google_auth():
         include_granted_scopes='true',
         prompt='select_account'
     )
+    
+    # Store launcher callback URL if provided
+    if callback:
+        pending_auth_sessions[state] = {'launcher_callback': callback}
+    
+    return RedirectResponse(url=authorization_url)
     
     return RedirectResponse(url=authorization_url)
 
@@ -146,13 +154,35 @@ async def google_callback(request: Request):
             'authenticated': True
         }
         
-        # Create response and set session cookie
+        # Check if this was called from launcher using state
+        state = request.query_params.get('state')
+        launcher_callback = None
+        
+        if state and state in pending_auth_sessions:
+            session_data = pending_auth_sessions.pop(state)  # Remove from pending
+            launcher_callback = session_data.get('launcher_callback')
+        
+        # If launcher callback, redirect back to launcher
+        if launcher_callback:
+            callback_url = f"{launcher_callback}?success=true&username={user_email}"
+            return RedirectResponse(url=callback_url, status_code=302)
+        
+        # Otherwise, normal web flow
         response = RedirectResponse(url="/", status_code=302)
         set_session_cookie(response, user_data)
         
         return response
         
     except Exception as e:
+        # If launcher callback and error occurred, redirect back with error
+        state = request.query_params.get('state')
+        if state and state in pending_auth_sessions:
+            session_data = pending_auth_sessions.pop(state)  # Remove from pending
+            launcher_callback = session_data.get('launcher_callback')
+            if launcher_callback:
+                callback_url = f"{launcher_callback}?success=false&error={str(e)}"
+                return RedirectResponse(url=callback_url, status_code=302)
+        
         raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
 
 @app.get("/logout")
