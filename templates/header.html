@@ -11,6 +11,10 @@
         </a>
         
         {% if user and user.authenticated %}
+        <nav class="main-nav">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/character" class="nav-link">Character</a>
+        </nav>
         <div class="user-menu">
             <div class="user-avatar-container">
                 <img src="{{ user.picture }}" alt="{{ user.name }}" class="user-avatar">

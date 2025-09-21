@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Character - Opencraft Launcher{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <main class="main-content">
+            <div class="character-page">
+                <div class="character-header">
+                    <div class="character-avatar">
+                        <img src="{{ user.picture }}" alt="{{ user.name }}" class="character-avatar-img">
+                    </div>
+                    <div class="character-info">
+                        <h1 class="character-name">{{ user.name }}</h1>
+                        <p class="character-email">{{ user.email }}</p>
+                        <div class="character-status">
+                            <span class="status-indicator online"></span>
+                            <span class="status-text">Online</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="character-stats">
+                    <h2>Character Stats</h2>
+                    <div class="character-name-section">
+                        <h3>Character Name:</h3>
+                        {% if character_name %}
+                            <p class="current-character-name">{{ character_name }}</p>
+                            <button id="edit-character-btn" class="edit-btn">Edit Character Name</button>
+                        {% else %}
+                            <p class="no-character">No character name set</p>
+                            <button id="create-character-btn" class="create-btn">Create Character Name</button>
+                        {% endif %}
+                        
+                        <!-- Character creation/edit form (hidden by default) -->
+                        <div id="character-form" class="character-form" style="display: none;">
+                            <form id="character-name-form">
+                                <div class="form-group">
+                                    <label for="character_name">Character Name:</label>
+                                    <input type="text" id="character_name" name="character_name" 
+                                           value="{% if character_name %}{{ character_name }}{% endif %}" 
+                                           placeholder="Enter your character name" required>
+                                </div>
+                                <div class="form-actions">
+                                    <button type="submit" class="save-btn">Save Character Name</button>
+                                    <button type="button" id="cancel-btn" class="cancel-btn">Cancel</button>
+                                </div>
+                            </form>
+                            <div id="form-message" class="form-message"></div>
+                        </div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-icon">🎮</div>
+                            <div class="stat-info">
+                                <div class="stat-label">Games Played</div>
+                                <div class="stat-value">XX</div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">⏱️</div>
+                            <div class="stat-info">
+                                <div class="stat-label">Time Played</div>
+                                <div class="stat-value">XX</div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">🏆</div>
+                            <div class="stat-info">
+                                <div class="stat-label">Achievements</div>
+                                <div class="stat-value">XX</div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-info">
+                                <div class="stat-label">Mods Installed</div>
+                                <div class="stat-value">XX</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h2>Recent Activity</h2>
+                    <div class="activity-list">
+                        <div class="activity-item">
+                            <div class="activity-icon">🎯</div>
+                            <div class="activity-info">
+                                <div class="activity-title">Completed Achievement: "Diamond Miner"</div>
+                                <div class="activity-time">XX</div>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon">🌍</div>
+                            <div class="activity-info">
+                                <div class="activity-title">Created new world: "Creative Build"</div>
+                                <div class="activity-time">XX</div>
+                            </div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-icon">📦</div>
+                            <div class="activity-info">
+                                <div class="activity-title">Installed mod: "JourneyMap"</div>
+                                <div class="activity-time">XX</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const createBtn = document.getElementById('create-character-btn');
+        const editBtn = document.getElementById('edit-character-btn');
+        const characterForm = document.getElementById('character-form');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const form = document.getElementById('character-name-form');
+        const messageDiv = document.getElementById('form-message');
+
+        // Show form when create or edit button is clicked
+        function showForm() {
+            characterForm.style.display = 'block';
+            if (createBtn) createBtn.style.display = 'none';
+            if (editBtn) editBtn.style.display = 'none';
+        }
+
+        // Hide form and show buttons
+        function hideForm() {
+            characterForm.style.display = 'none';
+            if (createBtn) createBtn.style.display = 'inline-block';
+            if (editBtn) editBtn.style.display = 'inline-block';
+        }
+
+        // Event listeners
+        if (createBtn) {
+            createBtn.addEventListener('click', showForm);
+        }
+        
+        if (editBtn) {
+            editBtn.addEventListener('click', showForm);
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', hideForm);
+        }
+
+        // Form submission
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const characterName = formData.get('character_name');
+
+                if (!characterName || characterName.trim() === '') {
+                    showMessage('Please enter a character name', 'error');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/character/create', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        showMessage('Character name saved successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showMessage(result.detail || 'Failed to save character name', 'error');
+                    }
+                } catch (error) {
+                    showMessage('An error occurred while saving', 'error');
+                    console.error('Error:', error);
+                }
+            });
+        }
+
+        // Show message function
+        function showMessage(message, type) {
+            messageDiv.textContent = message;
+            messageDiv.className = `form-message ${type}`;
+            messageDiv.style.display = 'block';
+        }
+    });
+</script>
+{% endblock %}

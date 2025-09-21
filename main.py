@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Request, HTTPException, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException, Response, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from google.oauth2 import id_token
@@ -11,6 +11,9 @@ import secrets
 from dotenv import load_dotenv
 from itsdangerous import URLSafeTimedSerializer
 import json
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -38,6 +41,22 @@ client_config = {
         "redirect_uris": [REDIRECT_URI]
     }
 }
+
+# MongoDB Configuration
+MONGODB_URL = os.getenv("MONGODB_URL")
+DATABASE_NAME = os.getenv("DATABASE_NAME", "opencraft")
+
+# Initialize MongoDB client
+try:
+    client = MongoClient(MONGODB_URL)
+    db = client[DATABASE_NAME]
+    users_collection = db.users
+    # Test the connection
+    client.admin.command('ping')
+    logging.info("Connected to MongoDB successfully")
+except ConnectionFailure as e:
+    logging.error(f"Failed to connect to MongoDB: {e}")
+    # You might want to handle this more gracefully in production
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -90,6 +109,55 @@ async def login_page(request: Request):
 async def signin_page(request: Request):
     user_data = get_session_data(request)
     return templates.TemplateResponse("signin.html", {"request": request, "user": user_data})
+
+@app.get("/character", response_class=HTMLResponse)
+async def character_page(request: Request):
+    user_data = get_session_data(request)
+    if not user_data or not user_data.get('authenticated'):
+        return RedirectResponse(url="/login", status_code=302)
+    
+    # Get user character from database
+    user_doc = users_collection.find_one({"email": user_data["email"]})
+    character_name = None
+    if user_doc:
+        character_name = user_doc.get("character_name")
+    
+    return templates.TemplateResponse("character.html", {
+        "request": request, 
+        "user": user_data,
+        "character_name": character_name
+    })
+
+@app.post("/api/character/create")
+async def create_character(request: Request, character_name: str = Form(...)):
+    """Create or update character name for the logged-in user"""
+    user_data = get_session_data(request)
+    if not user_data or not user_data.get('authenticated'):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        # Update or create user document with character name
+        result = users_collection.update_one(
+            {"email": user_data["email"]},
+            {
+                "$set": {
+                    "email": user_data["email"],
+                    "name": user_data["name"],
+                    "picture": user_data["picture"],
+                    "character_name": character_name
+                }
+            },
+            upsert=True
+        )
+        
+        return JSONResponse({
+            "success": True,
+            "message": "Character name saved successfully",
+            "character_name": character_name
+        })
+    except Exception as e:
+        logging.error(f"Error saving character name: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save character name")
 
 @app.get("/auth/google")
 async def google_auth(callback: str = None):
