@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Authentication Success - Opencraft Launcher{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card success-card">
+        <div class="success-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#06d6a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        
+        <h2 class="auth-title">Welcome to Opencraft!</h2>
+        <p class="auth-subtitle">You have successfully signed in with Google.</p>
+        
+        <div class="user-info">
+            {% if user_picture %}
+            <img src="{{ user_picture }}" alt="Profile Picture" class="user-avatar">
+            {% endif %}
+            <div class="user-details">
+                <h3 class="user-name">{{ user_name }}</h3>
+                <p class="user-email">{{ user_email }}</p>
+            </div>
+        </div>
+        
+        <div class="success-actions">
+            <a href="/" class="auth-button">Go to Home</a>
+            <a href="#" class="secondary-btn">Download Launcher</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
