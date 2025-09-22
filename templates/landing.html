@@ -48,7 +48,7 @@
                             <div class="version-name">(Not so) closed alpha development</div>
                             <div class="version-type">ALPHA</div>
                         </div>
-                        <a href="https://raw.githubusercontent.com/VitaliyStels/opencraft-web/refs/heads/main/dist/opencraft-launcher.jar" class="version-status download-btn" data-platform="linux" download>
+                        <a href="https://raw.githubusercontent.com/VitaliyStels/opencraft-web/refs/heads/main/dist/opencraft-launcher.jar" class="version-status download-btn download-redirect" data-platform="linux" download>
                             <span class="download-icon">⬇</span>
                             Linux
                         </a>
@@ -69,4 +69,19 @@
             </div>
         </footer>
     </div>
+
+    <script>
+        // Handle download and redirect functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const downloadButtons = document.querySelectorAll('.download-redirect');
+            
+            downloadButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    setTimeout(() => {
+                        window.location.href = '/download';
+                    }, 500);
+                });
+            });
+        });
+    </script>
 {% endblock %}

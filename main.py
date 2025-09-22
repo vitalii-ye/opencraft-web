@@ -115,7 +115,6 @@ async def character_page(request: Request):
     user_data = get_session_data(request)
     if not user_data or not user_data.get('authenticated'):
         return RedirectResponse(url="/login", status_code=302)
-    
     # Get user character from database
     user_doc = users_collection.find_one({"email": user_data["email"]})
     character_name = None
@@ -127,6 +126,13 @@ async def character_page(request: Request):
         "user": user_data,
         "character_name": character_name
     })
+
+
+@app.get("/download", response_class=HTMLResponse)
+async def download_page(request: Request):
+    user_data = get_session_data(request)
+    return templates.TemplateResponse("download.html", {"request": request, "user": user_data})
+
 
 @app.post("/api/character/create")
 async def create_character(request: Request, character_name: str = Form(...)):

@@ -5,6 +5,8 @@
     box-sizing: border-box;
 }
 
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
 :root {
     --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
@@ -276,18 +278,6 @@ body {
     padding: 3rem 0;
     text-align: center;
     position: relative;
-}
-
-.header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100px;
-    height: 4px;
-    background: var(--gradient);
-    border-radius: 2px;
 }
 
 .logo {
@@ -1368,4 +1358,16 @@ html {
     background: rgba(239, 68, 68, 0.1);
     color: #f87171;
     border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+iframe {
+    display: block;
+    margin: 0 auto;
+}
+
+.greet {
+    display: block;
+    margin: 0 auto;
+    font-size: 36px;
+    font-family: "Playfair Display", serif;
 }
