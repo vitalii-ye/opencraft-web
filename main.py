@@ -11,9 +11,11 @@ import secrets
 from dotenv import load_dotenv
 from itsdangerous import URLSafeTimedSerializer
 import json
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
 import logging
+from database import db_manager, get_db
+from models import User
+from sqlalchemy.orm import Session
+from fastapi import Depends
 
 # Load environment variables
 load_dotenv()
@@ -42,20 +44,12 @@ client_config = {
     }
 }
 
-# MongoDB Configuration
-MONGODB_URL = os.getenv("MONGODB_URL")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "opencraft")
-
-# Initialize MongoDB client
+# Initialize database tables
 try:
-    client = MongoClient(MONGODB_URL)
-    db = client[DATABASE_NAME]
-    users_collection = db.users
-    # Test the connection
-    client.admin.command('ping')
-    logging.info("Connected to MongoDB successfully")
-except ConnectionFailure as e:
-    logging.error(f"Failed to connect to MongoDB: {e}")
+    db_manager.create_tables()
+    logging.info("Database initialized successfully")
+except Exception as e:
+    logging.error(f"Failed to initialize database: {e}")
     # You might want to handle this more gracefully in production
 
 # Mount static files
@@ -111,15 +105,15 @@ async def signin_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request, "user": user_data})
 
 @app.get("/character", response_class=HTMLResponse)
-async def character_page(request: Request):
+async def character_page(request: Request, db: Session = Depends(get_db)):
     user_data = get_session_data(request)
     if not user_data or not user_data.get('authenticated'):
         return RedirectResponse(url="/login", status_code=302)
     # Get user character from database
-    user_doc = users_collection.find_one({"email": user_data["email"]})
+    user = db.query(User).filter(User.email == user_data["email"]).first()
     character_name = None
-    if user_doc:
-        character_name = user_doc.get("character_name")
+    if user:
+        character_name = user.character_name
     
     return templates.TemplateResponse("character.html", {
         "request": request, 
@@ -135,26 +129,32 @@ async def download_page(request: Request):
 
 
 @app.post("/api/character/create")
-async def create_character(request: Request, character_name: str = Form(...)):
+async def create_character(request: Request, character_name: str = Form(...), db: Session = Depends(get_db)):
     """Create or update character name for the logged-in user"""
     user_data = get_session_data(request)
     if not user_data or not user_data.get('authenticated'):
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     try:
-        # Update or create user document with character name
-        result = users_collection.update_one(
-            {"email": user_data["email"]},
-            {
-                "$set": {
-                    "email": user_data["email"],
-                    "name": user_data["name"],
-                    "picture": user_data["picture"],
-                    "character_name": character_name
-                }
-            },
-            upsert=True
-        )
+        # Get existing user or create new one
+        user = db.query(User).filter(User.email == user_data["email"]).first()
+        
+        if user:
+            # Update existing user
+            user.name = user_data["name"]
+            user.picture = user_data["picture"]
+            user.character_name = character_name
+        else:
+            # Create new user
+            user = User(
+                email=user_data["email"],
+                name=user_data["name"],
+                picture=user_data["picture"],
+                character_name=character_name
+            )
+            db.add(user)
+        
+        db.commit()
         
         return JSONResponse({
             "success": True,
@@ -162,6 +162,7 @@ async def create_character(request: Request, character_name: str = Form(...)):
             "character_name": character_name
         })
     except Exception as e:
+        db.rollback()
         logging.error(f"Error saving character name: {e}")
         raise HTTPException(status_code=500, detail="Failed to save character name")
 
@@ -237,10 +238,9 @@ async def google_callback(request: Request):
         # If launcher callback, redirect back to launcher
         if launcher_callback:
             # Get user's character name from database
-            user_doc = users_collection.find_one({"email": user_email})
-            character_name = None
-            if user_doc:
-                character_name = user_doc.get("character_name")
+            with db_manager.get_db_session() as session:
+                user = session.query(User).filter(User.email == user_email).first()
+                character_name = user.character_name if user else None
             
             # Build callback URL with both username and character name
             callback_url = f"{launcher_callback}?success=true&username={user_email}"
